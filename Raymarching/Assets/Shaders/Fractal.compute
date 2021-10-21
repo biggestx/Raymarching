@@ -1,0 +1,159 @@
+#pragma kernel CSMain
+
+RWTexture2D<float4> Result;
+
+float4x4 _CameraToWorld;
+float4x4 _InverseCameraProjection;
+
+float3 _LightDir;
+
+float Power;
+float Darkness;
+float White;
+float3 ColorA;
+float3 ColorB;
+
+float3 TempValue;
+float3 TempValue2;
+
+float _Time;
+
+static const float EPSILON = 0.001f;
+static const float MAX_DIST = 500;
+static const int MAX_STEPS = 250;
+
+static const float SURF = 0.005f;
+
+struct Ray
+{
+    float3 Origin;
+    float3 Direction;
+};
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.Origin = origin;
+    ray.Direction = direction;
+    return ray;
+}
+
+Ray CreateCameraRay(float2 uv)
+{
+    float3 origin = mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 direction = mul(_InverseCameraProjection, float4(uv, 0, 1)).xyz;
+    direction = mul(_CameraToWorld, float4(direction, 0)).xyz;
+    direction = normalize(direction);
+    return CreateRay(origin, direction);
+}
+
+float SDF(float3 position)
+{
+    float3 spherePos = float3(0, 1, TempValue.g);
+    
+    float sphereDist = length(spherePos - position) - (TempValue.r);
+    float planeDist = position.y;
+    
+    return min(sphereDist, planeDist);
+}
+
+float SD_Box(float3 p, float3 b)
+{
+    float3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+
+float Raymarching(float3 ro, float3 rd)
+{
+    float d = 0;
+
+    for (int i = 0; i < MAX_STEPS; ++i)
+    {
+        float3 p = ro + (rd * d);
+        float dS = SDF(p);
+        d += dS;
+
+        if (d > MAX_DIST)
+            break;
+
+        if (dS < TempValue.b)
+            break;
+
+    }
+    
+    return d;
+}
+
+float3 GetNormal(float3 p)
+{
+    float2 e = float2(0.001f, 0.0f);
+    float d = SDF(p);
+    float3 n = float3(
+        d - SDF(p- e.xyy),
+        d - SDF(p- e.yxy),
+        d - SDF(p- e.yyx));
+    return normalize(n);
+}
+
+
+float3 EstimateNormal(float3 p) {
+    float x = SDF(float3(p.x + EPSILON, p.y, p.z)).r - SDF(float3(p.x - EPSILON, p.y, p.z)).r;
+    float y = SDF(float3(p.x, p.y + EPSILON, p.z)).r - SDF(float3(p.x, p.y - EPSILON, p.z)).r;
+    float z = SDF(float3(p.x, p.y, p.z + EPSILON)).r - SDF(float3(p.x, p.y, p.z - EPSILON)).r;
+    return normalize(float3(x, y, z));
+}
+
+float GetLight(float p)
+{
+    float3 lightPos = TempValue2;
+
+    float3 l = normalize(lightPos - p);
+    float3 n = GetNormal(p);
+    float diff = clamp(dot(n, l), 0.0, 1.0);
+    float d = Raymarching(p + n * SURF, float3(1,1,1));
+    if (d < length(lightPos - p))
+        diff *= 0.1;
+    return diff;
+}
+
+float shadow(float ro, float rd, float mint, float maxt, float k )
+{
+    float res = 1.0;
+    for (float t = mint; t < maxt; )
+    {
+        float h = SDF(ro + rd * t);
+        if (h < 0.001)
+            return 0.0;
+        res = min(res, k * h / t);
+        t += h;
+    }
+    return res;
+}
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int width;
+    int height;
+
+    Result.GetDimensions(width, height);
+
+    float2 uv = id.xy / float2(width, height);
+
+    Ray ray = CreateCameraRay(uv * 2 - 1);
+
+
+    float3 ro = ray.Origin;
+    float3 rd = ray.Direction;
+    float d = Raymarching(ro, rd);
+    float3 p = ro + rd * d;
+
+    //float3 normal = GetNormal(p);
+
+    //float diff = GetLight(p);
+    //d = diff;
+
+    Result[id.xy] = float4(d,d,d,1);
+
+    
+}
