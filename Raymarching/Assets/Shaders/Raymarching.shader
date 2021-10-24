@@ -3,6 +3,8 @@ Shader "Unlit/Raymarching"
 	Properties
 	{
 		_TempValue("Temp", vector) = (0,0,0,0)
+		_LightColor1("Light Color1", Color) = (1,1,1,1)
+		_LightColor2("Light Color2", Color) = (1,1,1,1)
 	}
 		SubShader
 	{
@@ -34,7 +36,7 @@ Shader "Unlit/Raymarching"
 			#pragma multi_compile _ _SHADOWS_SOFT
 
 			#define EPSILON		0.001f
-			#define MAX_DIST	500
+			#define MAX_DIST	1000
 			#define MAX_STEPS	250
 			#define SURF_DIST	0.001f
 
@@ -65,6 +67,10 @@ Shader "Unlit/Raymarching"
 
 			CBUFFER_START(UnityPerMaterial)
 			float4 _TempValue;
+
+			float3 _LightColor1;
+			float3 _LightColor2;
+
 			CBUFFER_END
 
 			StructuredBuffer<ObjectStructure> _Objects;
@@ -195,8 +201,9 @@ Shader "Unlit/Raymarching"
 				float d = Raymarching(ro, rd);
 				float3 p = ro + rd * d;
 
-				float l = GetLight(p);
-				float4 col = float4(l, l, l, 1);
+				float3 l = GetLight(p) * _LightColor1;
+
+				float4 col = float4(l.xyz, 1) + (d * float4(_LightColor2.xyz,1));
 
 				return col;
 			}
