@@ -2,8 +2,6 @@ Shader "Unlit/Raymarching"
 {
 	Properties
 	{
-		_SpherePosition("Sphere Position", vector) = (0,0,0,0)
-		_SpherePosition2("Sphere Position2", vector) = (0,0,0,0)
 		_TempValue("Temp", vector) = (0,0,0,0)
 	}
 		SubShader
@@ -66,8 +64,6 @@ Shader "Unlit/Raymarching"
 			};
 
 			CBUFFER_START(UnityPerMaterial)
-			float4 _SpherePosition;
-			float4 _SpherePosition2;
 			float4 _TempValue;
 			CBUFFER_END
 
@@ -84,7 +80,7 @@ Shader "Unlit/Raymarching"
 
 			float SDF(float3 position)
 			{
-				float d = length(_SpherePosition - position) - (_SpherePosition.w);
+				float d = 10000;
 
 				float planeDist = position.y;
 
@@ -101,17 +97,6 @@ Shader "Unlit/Raymarching"
 				}
 
 				return smin(d,planeDist,1);
-
-				/*float3 spherePos = _SpherePosition.xyz;
-				float3 spherePos2 = _SpherePosition2.xyz;
-
-				float sphereDist = length(spherePos - position) - (_SpherePosition.w);
-
-				float sphereDist2 = length(spherePos2 - position) - (_SpherePosition2.w);
-
-				float planeDist = position.y;
-
-				return smin(smin(sphereDist, sphereDist2,1),planeDist,1);*/
 			}
 
 			float Raymarching(float3 ro, float3 rd)

@@ -169,8 +169,6 @@ class RaymarchingRenderPass : ScriptableRenderPass
             ComputeBuffer cb = new ComputeBuffer(30, System.Runtime.InteropServices.Marshal.SizeOf(typeof(ObjectStructure)));
             cb.SetData(objects);
             Settings.Mat.SetBuffer("_Objects", cb);
-
-            //Settings.Mat.SetBuffer("_Objects", objects);
             Settings.Mat.SetFloat("_ObjectCount", objects.Count);
             Settings.Mat.SetVector("_TempValue", Settings.TempValue);
             cmd.Blit(ResultTexture, cameraColorTargetIdent, Settings.Mat);
