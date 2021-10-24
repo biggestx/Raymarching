@@ -4,6 +4,17 @@ using UnityEngine;
 
 public class SimpleController : MonoBehaviour
 {
+    
+    public enum Shape
+    {
+        kSphere,
+        kBox,
+        kRoundBox
+    }
+
+    public Shape ShapeType = Shape.kSphere;
+    public float Size = 1f;
+
     [SerializeField]
     private float Factor = 100f;
 

@@ -58,8 +58,8 @@ Shader "Unlit/Raymarching"
 
 			struct ObjectStructure
 			{
+				int Type;
 				float3 Position;
-				float Type;
 				float Size;
 			};
 
@@ -67,8 +67,6 @@ Shader "Unlit/Raymarching"
 			float4 _TempValue;
 			CBUFFER_END
 
-
-			#define MAX_OBJECT_COUNT 30
 			StructuredBuffer<ObjectStructure> _Objects;
 			float _ObjectCount;
 
@@ -76,6 +74,22 @@ Shader "Unlit/Raymarching"
 			{
 				float h = max(k - abs(a - b), 0.0) / k;
 				return min(a, b) - h * h * k * (1.0 / 4.0);
+			}
+
+			float sdSphere(float3 p, float s)
+			{
+				return length(p) - s;
+			}
+			float sdBox(float3 p, float3 b)
+			{
+				float3 q = abs(p) - b;
+				return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+			}
+
+			float sdRoundBox(float3 p, float3 b, float r)
+			{
+				float3 q = abs(p) - b;
+				return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 			}
 
 			float SDF(float3 position)
@@ -86,12 +100,30 @@ Shader "Unlit/Raymarching"
 
 				for (int i = 0; i < _ObjectCount; ++i)
 				{
-					//float4 value = _Objects[i];
+					float type = _Objects[i].Type;
 					float3 pos = _Objects[i].Position;
-					float radius = _Objects[i].Size;
+					float size = _Objects[i].Size;
 
-					float dist = length(pos - position) - radius;
-					
+					float dist = 0;
+
+					float3 p = pos - position;
+					if (type == 0)
+					{
+						dist = sdSphere(p, size);
+					}
+					else if (type == 1)
+					{
+						dist = sdBox(p, float3(size, size, size));
+					}
+					else if (type == 2)
+					{
+						dist = sdRoundBox(p, float3(size, size, size), size);
+					}
+					else
+					{
+						dist = sdSphere(p, size);
+					}
+
 					d = smin(dist, d,1);
 
 				}

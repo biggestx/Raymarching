@@ -80,8 +80,8 @@ class RaymarchingRenderPass : ScriptableRenderPass
 
     public struct ObjectStructure
     {
+        public int Type;
         public Vector3 Position;
-        public float Type;
         public float Size;
     };
 
@@ -149,19 +149,18 @@ class RaymarchingRenderPass : ScriptableRenderPass
             var root = roots.Where(p => p.name == "Root").FirstOrDefault();
             if (root != null)
             {
-                var childs = root.GetComponentsInChildren<Transform>(true);
+                var childs = root.GetComponentsInChildren<SimpleController>(true);
                 foreach (var c in childs)
                 {
                     if (c.name == "Root")
                         continue;
 
-                    var pos = c.position;
-                    //objects.Add(new Vector4(pos.x, pos.y, pos.z, 1));
+                    var pos = c.transform.position;
                     objects.Add(new ObjectStructure()
                     {
+                        Type = (int)c.ShapeType,
                         Position = pos,
-                        Type = 1,
-                        Size = 1,
+                        Size = c.Size,
                     });
                 }
             }
