@@ -66,6 +66,8 @@ public class RaymarchingRendererFeature : ScriptableRendererFeature
 
 class RaymarchingRenderPass : ScriptableRenderPass
 {
+    private int MAX_OBJECT_COUNT = 30;
+
     string profilerTag;
     Material materialToBlit;
     RenderTargetIdentifier cameraColorTargetIdent;
@@ -78,6 +80,7 @@ class RaymarchingRenderPass : ScriptableRenderPass
     int Width;
     int Height;
 
+    ComputeBuffer CB = null;
     public struct ObjectStructure
     {
         public int Type;
@@ -88,6 +91,7 @@ class RaymarchingRenderPass : ScriptableRenderPass
     public RaymarchingRenderPass(RaymarchingRendererFeature.RaymarchingSettings settings)
     {
         Settings = settings;
+        CB = new ComputeBuffer(MAX_OBJECT_COUNT, System.Runtime.InteropServices.Marshal.SizeOf(typeof(ObjectStructure)));
     }
 
     public void Setup(RenderTargetIdentifier cameraColorTargetIdent)
@@ -108,7 +112,8 @@ class RaymarchingRenderPass : ScriptableRenderPass
             ResultTexture.enableRandomWrite = true;
             ResultTexture.Create();
         }
-        
+
+
     }
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -165,9 +170,9 @@ class RaymarchingRenderPass : ScriptableRenderPass
                 }
             }
 
-            ComputeBuffer cb = new ComputeBuffer(30, System.Runtime.InteropServices.Marshal.SizeOf(typeof(ObjectStructure)));
-            cb.SetData(objects);
-            Settings.Mat.SetBuffer("_Objects", cb);
+            
+            CB.SetData(objects);
+            Settings.Mat.SetBuffer("_Objects", CB);
             Settings.Mat.SetFloat("_ObjectCount", objects.Count);
             Settings.Mat.SetVector("_TempValue", Settings.TempValue);
             cmd.Blit(ResultTexture, cameraColorTargetIdent, Settings.Mat);
@@ -185,5 +190,10 @@ class RaymarchingRenderPass : ScriptableRenderPass
     public override void FrameCleanup(CommandBuffer cmd)
     {
         cmd.ReleaseTemporaryRT(tempTexture.id);
+    }
+
+    public override void OnFinishCameraStackRendering(CommandBuffer cmd)
+    {
+        base.OnFinishCameraStackRendering(cmd);
     }
 }
