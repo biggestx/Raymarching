@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -21,7 +22,11 @@ public class RaymarchingRendererFeature : ScriptableRendererFeature
 
         public Vector3 TempValue;
         public Vector3 TempValue2;
+
+        public Transform[] Objects = null;
     }
+
+
 
     public RaymarchingSettings settings = new RaymarchingSettings();
     RenderTargetHandle RenderTarget;
@@ -31,6 +36,16 @@ public class RaymarchingRendererFeature : ScriptableRendererFeature
     {
         RenderPass = new RaymarchingRenderPass(settings);
         RenderPass.renderPassEvent = settings.WhenToInsert;
+
+        //
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        var roots = activeScene.GetRootGameObjects();
+        var root = roots.Where(p => p.name == "Root").FirstOrDefault();
+        if (root != null)
+        {
+            var childs = root.GetComponentsInChildren<Transform>(true);
+            settings.Objects = childs.ToArray();
+        }
 
     }
 
@@ -62,6 +77,13 @@ class RaymarchingRenderPass : ScriptableRenderPass
 
     int Width;
     int Height;
+
+    public struct ObjectStructure
+    {
+        public Vector3 Position;
+        public float Type;
+        public float Size;
+    };
 
     public RaymarchingRenderPass(RaymarchingRendererFeature.RaymarchingSettings settings)
     {
@@ -105,7 +127,6 @@ class RaymarchingRenderPass : ScriptableRenderPass
             // 2. 카메라 렌더 텍스쳐를 컴퓨트 쉐이더에 넣고 dispatch
             // 3. 컴퓨트 쉐이더의 결과물을 받고 원본에 복붙
             // https://answers.unity.com/questions/1700156/computebuffer-stays-empty-in-compute-shader-in-urp.html
-            //cmd.SetComputeTextureParam(Settings.RaymarchingCompute, 0, "Result", cameraColorTargetIdent);
             Settings.RaymarchingCompute.SetTexture(0, "Result", ResultTexture);
 
             Settings.RaymarchingCompute.SetMatrix("_CameraToWorld", Camera.main.cameraToWorldMatrix);
@@ -121,6 +142,36 @@ class RaymarchingRenderPass : ScriptableRenderPass
         }
         else
         {
+            var objects = new List<ObjectStructure>();
+
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var roots = activeScene.GetRootGameObjects();
+            var root = roots.Where(p => p.name == "Root").FirstOrDefault();
+            if (root != null)
+            {
+                var childs = root.GetComponentsInChildren<Transform>(true);
+                foreach (var c in childs)
+                {
+                    if (c.name == "Root")
+                        continue;
+
+                    var pos = c.position;
+                    //objects.Add(new Vector4(pos.x, pos.y, pos.z, 1));
+                    objects.Add(new ObjectStructure()
+                    {
+                        Position = pos,
+                        Type = 1,
+                        Size = 1,
+                    });
+                }
+            }
+
+            ComputeBuffer cb = new ComputeBuffer(30, System.Runtime.InteropServices.Marshal.SizeOf(typeof(ObjectStructure)));
+            cb.SetData(objects);
+            Settings.Mat.SetBuffer("_Objects", cb);
+
+            //Settings.Mat.SetBuffer("_Objects", objects);
+            Settings.Mat.SetFloat("_ObjectCount", objects.Count);
             Settings.Mat.SetVector("_TempValue", Settings.TempValue);
             cmd.Blit(ResultTexture, cameraColorTargetIdent, Settings.Mat);
         }

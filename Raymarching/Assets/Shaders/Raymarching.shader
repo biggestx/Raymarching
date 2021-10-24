@@ -57,21 +57,52 @@ Shader "Unlit/Raymarching"
 				float4 pos : TEXCOORD3;
 			};
 
+
+			struct ObjectStructure
+			{
+				float3 Position;
+				float Type;
+				float Size;
+			};
+
 			CBUFFER_START(UnityPerMaterial)
 			float4 _SpherePosition;
 			float4 _SpherePosition2;
 			float4 _TempValue;
 			CBUFFER_END
 
+
+			#define MAX_OBJECT_COUNT 30
+			StructuredBuffer<ObjectStructure> _Objects;
+			float _ObjectCount;
+
 			float smin(float a, float b, float k)
 			{
-				float res = exp2(-k * a) + exp2(-k * b);
-				return -log2(res) / k;
+				float h = max(k - abs(a - b), 0.0) / k;
+				return min(a, b) - h * h * k * (1.0 / 4.0);
 			}
 
 			float SDF(float3 position)
 			{
-				float3 spherePos = _SpherePosition.xyz;
+				float d = length(_SpherePosition - position) - (_SpherePosition.w);
+
+				float planeDist = position.y;
+
+				for (int i = 0; i < _ObjectCount; ++i)
+				{
+					//float4 value = _Objects[i];
+					float3 pos = _Objects[i].Position;
+					float radius = _Objects[i].Size;
+
+					float dist = length(pos - position) - radius;
+					
+					d = smin(dist, d,1);
+
+				}
+
+				return smin(d,planeDist,1);
+
+				/*float3 spherePos = _SpherePosition.xyz;
 				float3 spherePos2 = _SpherePosition2.xyz;
 
 				float sphereDist = length(spherePos - position) - (_SpherePosition.w);
@@ -80,7 +111,7 @@ Shader "Unlit/Raymarching"
 
 				float planeDist = position.y;
 
-				return smin(smin(sphereDist, sphereDist2,32),planeDist,32);
+				return smin(smin(sphereDist, sphereDist2,1),planeDist,1);*/
 			}
 
 			float Raymarching(float3 ro, float3 rd)
